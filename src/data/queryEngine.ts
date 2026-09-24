@@ -1,5 +1,4 @@
 import type { Ontology } from './ontology';
-import { nlQueryResponses } from './quests';
 
 export interface QueryResponse {
   query: string;
@@ -8,6 +7,76 @@ export interface QueryResponse {
   highlightRelationships: string[];
   interpretation?: string;
 }
+
+interface DemoQueryResponse extends QueryResponse {
+  matches: string[];
+}
+
+export const nlQueryResponses: DemoQueryResponse[] = [
+  {
+    query: "show me all gold tier customers",
+    matches: ["gold tier", "gold customers", "customers gold"],
+    result: "Found 1 Gold tier customer:\n• Arif Ramadhan (CUST-001) - Gold tier since 2024",
+    highlightEntities: ["customer"],
+    highlightRelationships: []
+  },
+  {
+    query: "which products come from ethiopia",
+    matches: ["products ethiopia", "ethiopian", "from ethiopia"],
+    result: "Found 1 product from Ethiopia:\n• Ethiopian Single Origin (☕ Brewed) - $4.50\n  Sourced from: Ethiopia Highlands Farm",
+    highlightEntities: ["product", "supplier"],
+    highlightRelationships: ["product_sourced_from_supplier"]
+  },
+  {
+    query: "what orders did arif ramadhan place",
+    matches: ["orders arif", "arif ramadhan orders", "arif placed"],
+    result: "Arif Ramadhan's orders:\n• ORD-2025-001 - $12.50 (Completed)\n  Items: Ethiopian Single Origin x2, Colombian Latte x1\n  Store: Downtown Seattle",
+    highlightEntities: ["customer", "order", "store"],
+    highlightRelationships: ["customer_places_order", "order_processed_at_store"]
+  },
+  {
+    query: "how many stores are in seattle",
+    matches: ["stores seattle", "seattle stores", "how many stores"],
+    result: "Found 2 stores in Seattle:\n• Fourth Coffee - Downtown Seattle (45 seats)\n• Fourth Coffee - Capitol Hill (32 seats)",
+    highlightEntities: ["store"],
+    highlightRelationships: []
+  },
+  {
+    query: "show supply chain for colombian latte",
+    matches: ["supply chain", "colombian latte", "where does colombian latte come from"],
+    result: "Supply chain for Colombian Latte:\n• Bean Origin: Colombia 🇨🇴\n• Supplier: Colombian Mountain Roasters\n• Certification: Rainforest Alliance 🌿\n• Latest Shipment: SHIP-001 (Delivered Jan 27)",
+    highlightEntities: ["product", "supplier", "shipment"],
+    highlightRelationships: ["product_sourced_from_supplier", "shipment_from_supplier"]
+  },
+  {
+    query: "what is an entity type",
+    matches: ["what is entity", "entity type", "define entity"],
+    result: "An Entity Type is a reusable logical model of a real-world concept (like Customer, Product, or Order). It standardizes the name, description, identifiers, and properties so every team means the same thing when using a term.",
+    highlightEntities: [],
+    highlightRelationships: []
+  },
+  {
+    query: "what is a relationship",
+    matches: ["what is relationship", "define relationship", "relationships"],
+    result: "A Relationship is a typed, directional link between entity types. For example, 'Customer places Order' defines how customers connect to their orders. Relationships can have attributes like quantity or confidence.",
+    highlightEntities: [],
+    highlightRelationships: []
+  },
+  {
+    query: "show me platinum customers",
+    matches: ["platinum", "platinum customers", "customers platinum"],
+    result: "Found 1 Platinum tier customer:\n• Jaroslav Cerny (CUST-002) - Platinum tier\n  Total spend: $3,420.00\n  Member since: Jan 2023",
+    highlightEntities: ["customer"],
+    highlightRelationships: []
+  },
+  {
+    query: "list all organic products",
+    matches: ["organic", "organic products", "is organic"],
+    result: "Found 2 organic products:\n• Ethiopian Single Origin (Brewed) - $4.50 🌱\n• Nebula Cold Brew (Cold Brew) - $5.25 🌱",
+    highlightEntities: ["product"],
+    highlightRelationships: []
+  }
+];
 
 function stripLeadingArticle(text: string): string {
   return text.replace(/^(a|an|the)\s+/, '').trim();

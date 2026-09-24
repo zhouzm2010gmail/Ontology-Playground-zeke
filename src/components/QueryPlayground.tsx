@@ -15,10 +15,7 @@ export function QueryPlayground() {
     currentOntology,
     setHighlightedEntities, 
     setHighlightedRelationships, 
-    clearHighlights,
-    activeQuest,
-    currentStepIndex,
-    advanceQuestStep
+    clearHighlights
   } = useAppStore();
 
   // Generate dynamic suggestions based on current ontology
@@ -42,17 +39,9 @@ export function QueryPlayground() {
       setHighlightedEntities(response.highlightEntities);
       setHighlightedRelationships(response.highlightRelationships);
       
-      // Check if this advances a quest step
-      if (activeQuest) {
-        const currentStep = activeQuest.steps[currentStepIndex];
-        if (currentStep.targetType === 'query') {
-          advanceQuestStep();
-        }
-      }
-      
       setIsProcessing(false);
     }, 600);
-  }, [input, currentOntology, setHighlightedEntities, setHighlightedRelationships, activeQuest, currentStepIndex, advanceQuestStep]);
+  }, [input, currentOntology, setHighlightedEntities, setHighlightedRelationships]);
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {

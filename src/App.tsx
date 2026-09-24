@@ -3,7 +3,6 @@ import { AnimatePresence } from 'framer-motion';
 import { 
   Header, 
   OntologyGraph, 
-  QuestPanel, 
   InspectorPanel, 
   QueryPlayground,
   SearchFilter,
@@ -17,7 +16,6 @@ import {
   OntologySummaryModal,
   OntologyDesigner,
   LearnPage,
-  Toast,
   CommandPalette,
   GuidedTour,
   isTourDismissed,
@@ -32,7 +30,7 @@ import { useRoute } from './hooks/useRoute';
 import { navigate } from './lib/router';
 import { decodeSharePayload } from './lib/shareCodec';
 import type { Catalogue } from './types/catalogue';
-import { Search, MessageSquare, Info, Compass, LayoutGrid, PenTool, BookOpen, FileJson, HelpCircle, Database, Palette, FileText } from 'lucide-react';
+import { Search, MessageSquare, Info, LayoutGrid, PenTool, BookOpen, FileJson, HelpCircle, Database, Palette, FileText } from 'lucide-react';
 import './styles/app.css';
 
 const AI_BUILDER_ENABLED = import.meta.env.VITE_ENABLE_AI_BUILDER === 'true';
@@ -53,24 +51,9 @@ function App() {
   const [showNLBuilder, setShowNLBuilder] = useState(false);
   const [showFabricExport, setShowFabricExport] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
-  const [toast, setToast] = useState<{ message: string; icon: string } | null>(null);
-  const [mobilePanel, setMobilePanel] = useState<'graph' | 'quests' | 'inspector' | 'query'>('graph');
+  const [mobilePanel, setMobilePanel] = useState<'graph' | 'inspector' | 'query'>('graph');
   const [showCommandPalette, setShowCommandPalette] = useState(false);
-  const { theme, setTheme, earnedBadges, loadOntology } = useAppStore();
-
-  // Show toast when a new badge is earned
-  useEffect(() => {
-    if (earnedBadges.length > 0) {
-      const latestBadge = earnedBadges[earnedBadges.length - 1];
-      setToast({
-        message: `Quest Complete! Earned: ${latestBadge.badge}`,
-        icon: latestBadge.icon
-      });
-      
-      const timer = setTimeout(() => setToast(null), 4000);
-      return () => clearTimeout(timer);
-    }
-  }, [earnedBadges]);
+  const { theme, setTheme, loadOntology } = useAppStore();
 
   // Deep-link: /#/catalogue/<id> — load a specific ontology from the catalogue
   useEffect(() => {
@@ -200,7 +183,6 @@ function App() {
         onNLBuilderClick={AI_BUILDER_ENABLED ? () => setShowNLBuilder(true) : undefined}
         onSummaryClick={() => setShowSummary(true)}
       />
-      <QuestPanel />
       <OntologyGraph />
       <div className="right-sidebar">
         <OntologyStatsPanel />
@@ -215,9 +197,6 @@ function App() {
         <button className={`mobile-tab ${mobilePanel === 'graph' ? 'active' : ''}`} onClick={() => setMobilePanel('graph')}>
           <Search size={18} /> Graph
         </button>
-        <button className={`mobile-tab ${mobilePanel === 'quests' ? 'active' : ''}`} onClick={() => setMobilePanel('quests')}>
-          <Compass size={18} /> Quests
-        </button>
         <button className={`mobile-tab ${mobilePanel === 'inspector' ? 'active' : ''}`} onClick={() => setMobilePanel('inspector')}>
           <Info size={18} /> Inspector
         </button>
@@ -230,7 +209,6 @@ function App() {
       {mobilePanel !== 'graph' && (
         <div className="mobile-panel-drawer">
           <button className="mobile-panel-close" onClick={() => setMobilePanel('graph')}>✕ Close</button>
-          {mobilePanel === 'quests' && <QuestPanel />}
           {mobilePanel === 'inspector' && (
             <>
               <SearchFilter />
@@ -287,9 +265,6 @@ function App() {
         {showSummary && <OntologySummaryModal onClose={() => setShowSummary(false)} />}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {toast && <Toast message={toast.message} icon={toast.icon} />}
-      </AnimatePresence>
 
       <AnimatePresence>
         <CommandPalette

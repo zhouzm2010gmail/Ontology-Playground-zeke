@@ -298,7 +298,7 @@ body {
 /* App Layout */
 .app-container {
   display: grid;
-  grid-template-columns: 280px 1fr 360px;
+  grid-template-columns: 1fr 380px;
   grid-template-rows: 64px 1fr;
   height: 100vh;
   height: 100dvh;
@@ -1367,11 +1367,11 @@ body {
 /* Responsive */
 @media (max-width: 1200px) {
   .app-container {
-    grid-template-columns: 260px 1fr 320px;
+    grid-template-columns: 1fr 340px;
   }
   .app-container .app-footer {
-    left: 260px;
-    right: 320px;
+    left: 0;
+    right: 340px;
   }
 }
 
@@ -1394,7 +1394,6 @@ body {
     padding: 0 12px;
   }
 
-  .quest-panel,
   .right-sidebar {
     display: none;
   }
@@ -3122,8 +3121,8 @@ body {
 .app-container .app-footer {
   position: fixed;
   bottom: 4px;
-  left: 280px;
-  right: 360px;
+  left: 0;
+  right: 380px;
   padding: 6px 12px;
   z-index: 50;
   pointer-events: none;

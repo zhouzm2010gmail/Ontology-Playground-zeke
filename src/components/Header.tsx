@@ -4,7 +4,7 @@ import { useRoute } from '../hooks/useRoute';
 import { routeToHash } from '../lib/router';
 import { encodeSharePayload } from '../lib/shareCodec';
 import { serializeToRDF } from '../lib/rdf/serializer';
-import { Palette, Check, Database, Trophy, HelpCircle, FileJson, LayoutGrid, Sparkles, FileText, Share2, PenTool, BookOpen, Menu, X, Download, Info } from 'lucide-react';
+import { Palette, Check, Database, HelpCircle, FileJson, LayoutGrid, Sparkles, FileText, Share2, PenTool, BookOpen, Menu, X, Download, Info } from 'lucide-react';
 
 interface HeaderProps {
   onAboutClick: () => void;
@@ -19,7 +19,7 @@ interface HeaderProps {
 }
 
 export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImportExportClick, onGalleryClick, onDesignerClick, onLearnClick, onNLBuilderClick, onSummaryClick }: HeaderProps) {
-  const { theme, setTheme, totalPoints, earnedBadges, currentOntology, dataBindings } = useAppStore();
+  const { theme, setTheme, currentOntology, dataBindings } = useAppStore();
   const route = useRoute();
   const [shareStatus, setShareStatus] = useState<'idle' | 'copying' | 'copied' | 'downloaded'>('idle');
   const [menuOpen, setMenuOpen] = useState(false);
@@ -115,19 +115,6 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
         </div>
       </div>
 
-      <div className="header-stats">
-        <div className="stat-item">
-          <Trophy size={18} />
-          <span className="stat-value">{totalPoints}</span>
-          <span>points</span>
-        </div>
-        <div className="stat-item">
-          <span style={{ fontSize: 18 }}>🏆</span>
-          <span className="stat-value">{earnedBadges.length}</span>
-          <span>badges</span>
-        </div>
-      </div>
-
       <div className="header-actions">
         <button
           className="header-text-btn"
@@ -206,15 +193,6 @@ export function Header({ onAboutClick, onHelpClick, onDataSourcesClick, onImport
         </button>
         {menuOpen && (
           <div className="mobile-menu-dropdown">
-            <div className="mobile-menu-stats">
-              <Trophy size={16} />
-              <span className="stat-value">{totalPoints}</span>
-              <span>points</span>
-              <span style={{ margin: '0 8px', color: 'var(--text-tertiary)' }}>·</span>
-              <span>🏆</span>
-              <span className="stat-value">{earnedBadges.length}</span>
-              <span>badges</span>
-            </div>
             <button className="mobile-menu-item" onClick={menuAction(handleShare)}>
               <Share2 size={18} /> {shareLabel}
             </button>

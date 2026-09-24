@@ -23,12 +23,6 @@ const tourSteps: TourStep[] = [
     placement: 'bottom',
   },
   {
-    target: '.quest-panel',
-    title: 'Quests',
-    description: 'Complete guided quests to learn ontology concepts step by step. Earn badges and points along the way!',
-    placement: 'right',
-  },
-  {
     target: '.right-sidebar',
     title: 'Inspector & Query',
     description: 'Select an entity to see its properties and data bindings. Use the query bar at the bottom to ask natural language questions.',

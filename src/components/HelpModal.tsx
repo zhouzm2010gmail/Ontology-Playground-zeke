@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { X, MousePointer, Target, MessageSquare, Link2, Lightbulb, Command } from 'lucide-react';
+import { X, MousePointer, PenTool, MessageSquare, Link2, Lightbulb, Command } from 'lucide-react';
 
 interface HelpModalProps {
   onClose: () => void;
@@ -43,12 +43,11 @@ export function HelpModal({ onClose }: HelpModalProps) {
 
           <div className="feature-card">
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-              <Target size={20} color="var(--ms-purple)" />
-              <span className="feature-title" style={{ marginBottom: 0 }}>Complete Quests</span>
+              <PenTool size={20} color="var(--ms-purple)" />
+              <span className="feature-title" style={{ marginBottom: 0 }}>Design & Model</span>
             </div>
             <p className="feature-text">
-              Select a quest from the left panel to start a guided journey. Follow the instructions to click on specific entities 
-              or relationships. Complete all steps to earn <strong>badges</strong> and <strong>points</strong>!
+              Use the visual designer to create entity types, define typed properties, configure relationships with cardinalities, and export to standard RDF/XML or Microsoft Fabric IQ.
             </p>
           </div>
 

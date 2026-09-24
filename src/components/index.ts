@@ -1,7 +1,6 @@
 export { AppFooter } from './AppFooter';
 export { OntologyGraph } from './OntologyGraph';
 export { InspectorPanel } from './InspectorPanel';
-export { QuestPanel } from './QuestPanel';
 export { QueryPlayground } from './QueryPlayground';
 export { SearchFilter } from './SearchFilter';
 export { Header } from './Header';

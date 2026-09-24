@@ -61,24 +61,9 @@ export function OntologyGraph() {
     highlightedRelationships,
     selectEntity,
     selectRelationship,
-    activeQuest,
-    currentStepIndex,
-    advanceQuestStep,
     darkMode,
     theme
   } = useAppStore();
-
-  // Use refs for quest state to avoid re-creating the graph when quest changes
-  const activeQuestRef = useRef(activeQuest);
-  const currentStepIndexRef = useRef(currentStepIndex);
-  const advanceQuestStepRef = useRef(advanceQuestStep);
-  
-  // Keep refs in sync
-  useEffect(() => {
-    activeQuestRef.current = activeQuest;
-    currentStepIndexRef.current = currentStepIndex;
-    advanceQuestStepRef.current = advanceQuestStep;
-  }, [activeQuest, currentStepIndex, advanceQuestStep]);
   
   // Theme-aware colors, sourced from the active theme's CSS variables so each
   // theme (including the derived ones) renders with its own graph palette.
@@ -264,31 +249,11 @@ export function OntologyGraph() {
     cy.on('tap', 'node', (evt: EventObject) => {
       const nodeId = evt.target.id();
       selectEntity(nodeId);
-      
-      // Check if this advances a quest step (use refs to avoid re-creating graph)
-      const quest = activeQuestRef.current;
-      const stepIndex = currentStepIndexRef.current;
-      if (quest) {
-        const currentStep = quest.steps[stepIndex];
-        if (currentStep.targetType === 'entity' && currentStep.targetId === nodeId) {
-          advanceQuestStepRef.current();
-        }
-      }
     });
 
     cy.on('tap', 'edge', (evt: EventObject) => {
       const edgeId = evt.target.id();
       selectRelationship(edgeId);
-      
-      // Check if this advances a quest step (use refs to avoid re-creating graph)
-      const quest = activeQuestRef.current;
-      const stepIndex = currentStepIndexRef.current;
-      if (quest) {
-        const currentStep = quest.steps[stepIndex];
-        if (currentStep.targetType === 'relationship' && currentStep.targetId === edgeId) {
-          advanceQuestStepRef.current();
-        }
-      }
     });
 
     cy.on('tap', (evt: EventObject) => {
