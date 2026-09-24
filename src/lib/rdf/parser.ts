@@ -132,6 +132,10 @@ interface ParsedDatatypeProperty {
   rangeUri: string | null;
   comment: string | null;
   isIdentifier: boolean;
+  isComputed?: boolean;
+  expressionJson?: string | null;
+  isRequired?: boolean;
+  constraintsJson?: string | null;
   unit: string | null;
   enumValues: string | null;
   propertyType: string | null;
@@ -211,6 +215,10 @@ export function parseRDF(rdfXml: string): { ontology: Ontology; bindings: DataBi
       rangeUri: getChildResource(el, 'range'),
       comment: descriptionComment,
       isIdentifier: getChildText(el, 'isIdentifier') === 'true' || hasIdentifierComment,
+      isComputed: getChildText(el, 'isComputed') === 'true',
+      expressionJson: getChildText(el, 'expressionJson'),
+      isRequired: getChildText(el, 'isRequired') === 'true',
+      constraintsJson: getChildText(el, 'constraintsJson'),
       unit: getChildText(el, 'unit'),
       enumValues: getChildText(el, 'enumValues'),
       propertyType: getChildText(el, 'propertyType'),
@@ -258,6 +266,22 @@ export function parseRDF(rdfXml: string): { ontology: Ontology; bindings: DataBi
     };
 
     if (dtProp.isIdentifier) prop.isIdentifier = true;
+    if (dtProp.isComputed) prop.isComputed = true;
+    if (dtProp.expressionJson) {
+      try {
+        prop.expression = JSON.parse(dtProp.expressionJson);
+      } catch {
+        // ignore parse errors
+      }
+    }
+    if (dtProp.isRequired) prop.isRequired = true;
+    if (dtProp.constraintsJson) {
+      try {
+        prop.constraints = JSON.parse(dtProp.constraintsJson);
+      } catch {
+        // ignore parse errors
+      }
+    }
     if (dtProp.unit) prop.unit = dtProp.unit;
     if (dtProp.enumValues) {
       prop.values = dtProp.enumValues.split(',');
@@ -308,6 +332,15 @@ export function parseRDF(rdfXml: string): { ontology: Ontology; bindings: DataBi
     };
 
     if (description) rel.description = description;
+
+    const relConstraintsJson = getChildText(el, 'constraintsJson');
+    if (relConstraintsJson) {
+      try {
+        rel.constraints = JSON.parse(relConstraintsJson);
+      } catch {
+        // ignore parse errors
+      }
+    }
 
     // Attach relationship attributes
     const attrs = relAttrMap.get(relId);

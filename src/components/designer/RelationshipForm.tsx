@@ -1,6 +1,6 @@
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Shield } from 'lucide-react';
 import { useDesignerStore } from '../../store/designerStore';
-import type { Relationship } from '../../data/ontology';
+import type { Relationship, RelationshipConstraint } from '../../data/ontology';
 
 const CARDINALITY_OPTIONS: Relationship['cardinality'][] = [
   'one-to-one', 'one-to-many', 'many-to-one', 'many-to-many',
@@ -190,6 +190,155 @@ export function RelationshipForm() {
                       </button>
                     </div>
                   ))}
+                </div>
+
+                {/* Constraints */}
+                <div className="designer-field">
+                  <div className="designer-section-header">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      <Shield size={12} />
+                      Constraints ({rel.constraints?.length ?? 0})
+                    </span>
+                    <button
+                      type="button"
+                      className="designer-add-btn small"
+                      onClick={() => {
+                        const newCst: RelationshipConstraint = {
+                          id: `rel-cst-${Date.now()}`,
+                          name: '基数约束',
+                          type: 'cardinality-exact',
+                          severity: 'error',
+                          message: '请满足关联基数契约',
+                          cardinalityRange: { min: 1 },
+                        };
+                        updateRelationship(rel.id, {
+                          constraints: [...(rel.constraints || []), newCst],
+                        });
+                      }}
+                    >
+                      <Plus size={12} /> Add Rule
+                    </button>
+                  </div>
+
+                  <div className="designer-constraint-list" style={{ marginTop: 4 }}>
+                    {(rel.constraints ?? []).map((c, idx) => (
+                      <div key={c.id || idx} className="designer-constraint-item">
+                        <div className="designer-form-row">
+                          <input
+                            type="text"
+                            className="designer-input-sm"
+                            placeholder="规则名称"
+                            value={c.name || ''}
+                            onChange={(e) => {
+                              const next = [...(rel.constraints || [])];
+                              next[idx] = { ...next[idx], name: e.target.value };
+                              updateRelationship(rel.id, { constraints: next });
+                            }}
+                            style={{ flex: 1.2 }}
+                          />
+                          <select
+                            className="designer-select-sm"
+                            value={c.type}
+                            onChange={(e) => {
+                              const next = [...(rel.constraints || [])];
+                              next[idx] = {
+                                ...next[idx],
+                                type: e.target.value as RelationshipConstraint['type'],
+                              };
+                              updateRelationship(rel.id, { constraints: next });
+                            }}
+                            style={{ flex: 1 }}
+                          >
+                            <option value="cardinality-exact">精确基数 (Cardinality)</option>
+                            <option value="required">必填关联 (Required)</option>
+                            <option value="custom">自定义规则 (Custom)</option>
+                          </select>
+                          <select
+                            className="designer-select-sm"
+                            value={c.severity}
+                            onChange={(e) => {
+                              const next = [...(rel.constraints || [])];
+                              next[idx] = {
+                                ...next[idx],
+                                severity: e.target.value as RelationshipConstraint['severity'],
+                              };
+                              updateRelationship(rel.id, { constraints: next });
+                            }}
+                            style={{ flex: 0.9 }}
+                          >
+                            <option value="error">🔴 Error</option>
+                            <option value="warning">🟡 Warning</option>
+                            <option value="info">🔵 Info</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="designer-delete-btn small"
+                            onClick={() => {
+                              updateRelationship(rel.id, {
+                                constraints: (rel.constraints || []).filter((_, i) => i !== idx),
+                              });
+                            }}
+                            title="Remove constraint"
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+
+                        {c.type === 'cardinality-exact' && (
+                          <div className="designer-form-row" style={{ marginTop: 4 }}>
+                            <input
+                              type="number"
+                              className="designer-input-sm"
+                              placeholder="最小实例数 (Min)"
+                              value={c.cardinalityRange?.min ?? ''}
+                              onChange={(e) => {
+                                const next = [...(rel.constraints || [])];
+                                next[idx] = {
+                                  ...next[idx],
+                                  cardinalityRange: {
+                                    ...next[idx].cardinalityRange,
+                                    min: e.target.value === '' ? undefined : Number(e.target.value),
+                                  },
+                                };
+                                updateRelationship(rel.id, { constraints: next });
+                              }}
+                            />
+                            <input
+                              type="number"
+                              className="designer-input-sm"
+                              placeholder="最大实例数 (Max)"
+                              value={c.cardinalityRange?.max ?? ''}
+                              onChange={(e) => {
+                                const next = [...(rel.constraints || [])];
+                                next[idx] = {
+                                  ...next[idx],
+                                  cardinalityRange: {
+                                    ...next[idx].cardinalityRange,
+                                    max: e.target.value === '' ? undefined : Number(e.target.value),
+                                  },
+                                };
+                                updateRelationship(rel.id, { constraints: next });
+                              }}
+                            />
+                          </div>
+                        )}
+
+                        <div style={{ marginTop: 4 }}>
+                          <input
+                            type="text"
+                            className="designer-input-sm"
+                            placeholder="约束校验提示信息 (Message)"
+                            value={c.message || ''}
+                            onChange={(e) => {
+                              const next = [...(rel.constraints || [])];
+                              next[idx] = { ...next[idx], message: e.target.value };
+                              updateRelationship(rel.id, { constraints: next });
+                            }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}

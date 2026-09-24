@@ -77,33 +77,53 @@ export function OntologyGraph() {
 
   // Build graph elements from ontology
   const buildElements = useCallback(() => {
-    const nodes = currentOntology.entityTypes.map(entity => ({
-      data: {
-        id: entity.id,
-        label: `${entity.icon} ${entity.name}`,
-        name: entity.name,
-        icon: entity.icon,
-        color: entity.color,
-        description: entity.description,
-        type: 'entity'
-      }
-    }));
+    const nodes = currentOntology.entityTypes.map(entity => {
+      const computedCount = entity.properties.filter(p => p.isComputed).length;
+      const constraintCount = entity.properties.flatMap(p => p.constraints || []).length;
+      let badgeText = '';
+      if (computedCount > 0) badgeText += `⚡${computedCount} `;
+      if (constraintCount > 0) badgeText += `🛡️${constraintCount}`;
+      badgeText = badgeText.trim();
+
+      const displayLabel = badgeText 
+        ? `${entity.icon} ${entity.name}\n${badgeText}`
+        : `${entity.icon} ${entity.name}`;
+
+      return {
+        data: {
+          id: entity.id,
+          label: displayLabel,
+          name: entity.name,
+          icon: entity.icon,
+          color: entity.color,
+          description: entity.description,
+          computedCount,
+          constraintCount,
+          type: 'entity'
+        }
+      };
+    });
 
     const nodeIds = new Set(nodes.map(n => n.data.id));
 
     const edges = currentOntology.relationships
       .filter(rel => rel.from && rel.to && nodeIds.has(rel.from) && nodeIds.has(rel.to))
-      .map(rel => ({
-        data: {
-          id: rel.id,
-          source: rel.from,
-          target: rel.to,
-          label: rel.name,
-          cardinality: rel.cardinality,
-          description: rel.description,
-          type: 'relationship'
-        }
-      }));
+      .map(rel => {
+        const hasConstraints = rel.constraints && rel.constraints.length > 0;
+        const edgeLabel = hasConstraints ? `${rel.name} 🛡️` : rel.name;
+
+        return {
+          data: {
+            id: rel.id,
+            source: rel.from,
+            target: rel.to,
+            label: edgeLabel,
+            cardinality: rel.cardinality,
+            description: rel.description,
+            type: 'relationship'
+          }
+        };
+      });
 
     return [...nodes, ...edges];
   }, [currentOntology]);
@@ -123,11 +143,14 @@ export function OntologyGraph() {
             'label': 'data(label)',
             'text-valign': 'bottom',
             'text-halign': 'center',
-            'font-size': '14px',
+            'font-size': '13px',
             'font-family': 'Segoe UI, sans-serif',
             'font-weight': 600,
             'color': initialThemeColors.current.nodeText,
-            'text-margin-y': 10,
+            'text-margin-y': 8,
+            'text-wrap': 'wrap',
+            'text-max-width': '140px',
+            'line-height': 1.25,
             'width': 70,
             'height': 70,
             'background-color': 'data(color)',

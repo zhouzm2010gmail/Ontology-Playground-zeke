@@ -194,4 +194,83 @@ describe('RDF round-trip tests', () => {
       ontology.entityTypes[0].properties[0].description,
     );
   });
+
+  it('round-trips computed properties and validation constraints', () => {
+    const ontology: Ontology = {
+      name: 'Advanced Coffee',
+      description: 'Ontology with computed props and constraints',
+      entityTypes: [
+        {
+          id: 'customer',
+          name: 'Customer',
+          description: 'A customer',
+          icon: '👤',
+          color: '#0078D4',
+          properties: [
+            {
+              name: 'customerId',
+              type: 'string',
+              isIdentifier: true,
+              isRequired: true,
+              constraints: [
+                {
+                  id: 'cst-1',
+                  name: 'ID Format',
+                  type: 'pattern',
+                  severity: 'error',
+                  pattern: '^CUST-\\d+$',
+                  message: 'Must follow CUST-xxx',
+                },
+              ],
+            },
+            {
+              name: 'totalSpend',
+              type: 'decimal',
+              isComputed: true,
+              expression: {
+                type: 'aggregation',
+                aggregation: {
+                  function: 'SUM',
+                  traversal: { relationshipId: 'places_order', direction: 'outgoing' },
+                  targetProperty: 'amount',
+                },
+              },
+            },
+          ],
+        },
+      ],
+      relationships: [
+        {
+          id: 'places_order',
+          name: 'places',
+          from: 'customer',
+          to: 'customer',
+          cardinality: 'one-to-many',
+          constraints: [
+            {
+              id: 'rcst-1',
+              name: 'Min Order',
+              type: 'cardinality-exact',
+              severity: 'warning',
+              message: 'At least one order',
+              cardinalityRange: { min: 1 },
+            },
+          ],
+        },
+      ],
+    };
+
+    const rdf = serializeToRDF(ontology);
+    const { ontology: parsed } = parseRDF(rdf);
+
+    expect(parsed.entityTypes[0].properties[0].isRequired).toBe(true);
+    expect(parsed.entityTypes[0].properties[0].constraints).toHaveLength(1);
+    expect(parsed.entityTypes[0].properties[0].constraints![0].pattern).toBe('^CUST-\\d+$');
+
+    expect(parsed.entityTypes[0].properties[1].isComputed).toBe(true);
+    expect(parsed.entityTypes[0].properties[1].expression?.aggregation?.function).toBe('SUM');
+
+    expect(parsed.relationships[0].constraints).toHaveLength(1);
+    expect(parsed.relationships[0].constraints![0].cardinalityRange?.min).toBe(1);
+  });
 });

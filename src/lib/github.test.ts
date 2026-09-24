@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   getStoredToken,
@@ -12,7 +13,7 @@ import {
 // ─── Token storage ──────────────────────────────────────────────────────────
 
 describe('token storage', () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => window.localStorage.clear());
 
   it('returns null when no token stored', () => {
     expect(getStoredToken()).toBeNull();
@@ -75,7 +76,7 @@ describe('startDeviceFlow', () => {
 describe('pollForToken', () => {
   beforeEach(() => {
     vi.stubGlobal('fetch', vi.fn());
-    localStorage.clear();
+    window.localStorage.clear();
   });
   afterEach(() => vi.restoreAllMocks());
 

@@ -1,5 +1,74 @@
 // Fourth Coffee - Sample Ontology for Microsoft Fabric IQ Demo
 
+/** 计算属性的表达式定义 */
+export interface ComputedExpression {
+  /** 表达式类型: 聚合计算 | 公式计算 | 条件判断 */
+  type: 'aggregation' | 'formula' | 'conditional';
+  /**
+   * 聚合型表达式配置
+   * 例如: SUM(Customer → places → Order.total)
+   */
+  aggregation?: {
+    function: 'SUM' | 'AVG' | 'COUNT' | 'MIN' | 'MAX';
+    /** 遍历关系路径 */
+    traversal: {
+      relationshipId: string;
+      direction: 'outgoing' | 'incoming';
+    };
+    /** 目标实体属性（COUNT 时可选） */
+    targetProperty?: string;
+  };
+  /**
+   * 公式型表达式（引用自身属性做数学运算）
+   * 例如: "(price - costPrice) / price"
+   */
+  formula?: string;
+  /**
+   * 条件型表达式
+   * 例如: condition: "totalLifetimeValue >= 3000", thenValue: "Platinum", elseValue: "Gold"
+   */
+  conditional?: {
+    condition: string;
+    thenValue: string;
+    elseValue: string;
+  };
+}
+
+/** 属性约束规则（数据契约 / 验证规则） */
+export interface PropertyConstraint {
+  id: string;
+  name?: string;
+  type: 'range' | 'pattern' | 'length' | 'custom';
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  range?: {
+    min?: number;
+    max?: number;
+    exclusiveMin?: boolean;
+    exclusiveMax?: boolean;
+  };
+  pattern?: string;
+  length?: {
+    min?: number;
+    max?: number;
+  };
+  customExpression?: string;
+}
+
+/** 关系约束规则 */
+export interface RelationshipConstraint {
+  id: string;
+  name?: string;
+  type: 'cardinality-exact' | 'required' | 'custom';
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  cardinalityRange?: {
+    min?: number;
+    max?: number;
+  };
+  customExpression?: string;
+}
+
 export interface Property {
   name: string;
   type: 'string' | 'integer' | 'decimal' | 'double' | 'date' | 'datetime' | 'boolean' | 'enum';
@@ -7,6 +76,10 @@ export interface Property {
   unit?: string;
   values?: string[];
   description?: string;
+  isComputed?: boolean;
+  expression?: ComputedExpression;
+  isRequired?: boolean;
+  constraints?: PropertyConstraint[];
 }
 
 export interface RelationshipAttribute {
@@ -22,6 +95,7 @@ export interface Relationship {
   cardinality: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many';
   description?: string;
   attributes?: RelationshipAttribute[];
+  constraints?: RelationshipConstraint[];
 }
 
 export interface EntityType {
@@ -65,12 +139,96 @@ export const cosmicCoffeeOntology: Ontology = {
       icon: "👤",
       color: "#0078D4", // Microsoft Blue
       properties: [
-        { name: "customerId", type: "string", isIdentifier: true, description: "Unique customer identifier" },
-        { name: "name", type: "string", description: "Full name of the customer" },
-        { name: "email", type: "string", description: "Contact email address" },
+        {
+          name: "customerId",
+          type: "string",
+          isIdentifier: true,
+          isRequired: true,
+          description: "Unique customer identifier",
+          constraints: [
+            { id: "cst-cust-id", name: "ID格式规范", type: "pattern", severity: "error", pattern: "^CUST-\\d{3}$", message: "客户编号必须符合 CUST-xxx 规范" }
+          ]
+        },
+        {
+          name: "name",
+          type: "string",
+          isRequired: true,
+          description: "Full name of the customer",
+          constraints: [
+            { id: "cst-cust-name", name: "姓名长度", type: "length", severity: "warning", length: { min: 2, max: 100 }, message: "姓名长度应在 2 至 100 个字符之间" }
+          ]
+        },
+        {
+          name: "email",
+          type: "string",
+          isRequired: true,
+          description: "Contact email address",
+          constraints: [
+            { id: "cst-cust-email", name: "邮箱有效性", type: "pattern", severity: "error", pattern: "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", message: "必须是合法的电子邮件地址" }
+          ]
+        },
         { name: "loyaltyTier", type: "enum", values: ["Bronze", "Silver", "Gold", "Platinum"], description: "Loyalty program tier" },
         { name: "joinDate", type: "date", description: "Date the customer joined" },
-        { name: "totalSpend", type: "decimal", unit: "USD", description: "Lifetime spend amount" }
+        { name: "totalSpend", type: "decimal", unit: "USD", description: "Lifetime spend amount (legacy static field)" },
+        // 计算属性
+        {
+          name: "totalLifetimeValue",
+          type: "decimal",
+          isComputed: true,
+          unit: "USD",
+          description: "客户历史消费总额 (动态聚合汇总)",
+          expression: {
+            type: "aggregation",
+            aggregation: {
+              function: "SUM",
+              traversal: { relationshipId: "customer_places_order", direction: "outgoing" },
+              targetProperty: "total"
+            }
+          }
+        },
+        {
+          name: "orderCount",
+          type: "integer",
+          isComputed: true,
+          description: "客户累计下单笔数",
+          expression: {
+            type: "aggregation",
+            aggregation: {
+              function: "COUNT",
+              traversal: { relationshipId: "customer_places_order", direction: "outgoing" }
+            }
+          }
+        },
+        {
+          name: "avgOrderValue",
+          type: "decimal",
+          isComputed: true,
+          unit: "USD",
+          description: "客户平均单笔客单价",
+          expression: {
+            type: "aggregation",
+            aggregation: {
+              function: "AVG",
+              traversal: { relationshipId: "customer_places_order", direction: "outgoing" },
+              targetProperty: "total"
+            }
+          }
+        },
+        {
+          name: "derivedTier",
+          type: "enum",
+          values: ["Bronze", "Silver", "Gold", "Platinum"],
+          isComputed: true,
+          description: "动态会员等级 (根据终身价值动态判定)",
+          expression: {
+            type: "conditional",
+            conditional: {
+              condition: "totalLifetimeValue >= 3000",
+              thenValue: "Platinum",
+              elseValue: "totalLifetimeValue >= 1000 ? Gold : Silver"
+            }
+          }
+        }
       ]
     },
     {
@@ -80,11 +238,34 @@ export const cosmicCoffeeOntology: Ontology = {
       icon: "🧾",
       color: "#107C10", // Microsoft Green
       properties: [
-        { name: "orderId", type: "string", isIdentifier: true, description: "Unique order identifier" },
+        { name: "orderId", type: "string", isIdentifier: true, isRequired: true, description: "Unique order identifier" },
         { name: "timestamp", type: "datetime", description: "When the order was placed" },
-        { name: "total", type: "decimal", unit: "USD", description: "Total order amount" },
+        {
+          name: "total",
+          type: "decimal",
+          unit: "USD",
+          isRequired: true,
+          description: "Total order amount",
+          constraints: [
+            { id: "cst-order-total", name: "金额非负校验", type: "range", severity: "error", range: { min: 0 }, message: "订单总金额必须大于等于 0" }
+          ]
+        },
         { name: "status", type: "enum", values: ["Pending", "Preparing", "Ready", "Completed", "Cancelled"], description: "Current order status" },
-        { name: "paymentMethod", type: "enum", values: ["Card", "Cash", "Mobile", "Gift Card"], description: "Payment method used" }
+        { name: "paymentMethod", type: "enum", values: ["Card", "Cash", "Mobile", "Gift Card"], description: "Payment method used" },
+        {
+          name: "itemCount",
+          type: "integer",
+          isComputed: true,
+          description: "订单内商品总件数",
+          expression: {
+            type: "aggregation",
+            aggregation: {
+              function: "SUM",
+              traversal: { relationshipId: "order_contains_product", direction: "outgoing" },
+              targetProperty: "quantity"
+            }
+          }
+        }
       ]
     },
     {
@@ -94,10 +275,19 @@ export const cosmicCoffeeOntology: Ontology = {
       icon: "☕",
       color: "#5C2D91", // Microsoft Purple
       properties: [
-        { name: "productId", type: "string", isIdentifier: true, description: "Unique product identifier" },
-        { name: "name", type: "string", description: "Product name" },
+        { name: "productId", type: "string", isIdentifier: true, isRequired: true, description: "Unique product identifier" },
+        { name: "name", type: "string", isRequired: true, description: "Product name" },
         { name: "category", type: "enum", values: ["Espresso", "Brewed", "Cold Brew", "Tea", "Food", "Merchandise"], description: "Product category" },
-        { name: "price", type: "decimal", unit: "USD", description: "Unit price" },
+        {
+          name: "price",
+          type: "decimal",
+          unit: "USD",
+          isRequired: true,
+          description: "Unit price",
+          constraints: [
+            { id: "cst-prod-price", name: "单价合理范围", type: "range", severity: "error", range: { min: 0.1, max: 1000 }, message: "商品单价需在 0.1 至 1000 USD 之间" }
+          ]
+        },
         { name: "origin", type: "string", description: "Coffee bean origin country" },
         { name: "isOrganic", type: "boolean", description: "Whether the product is certified organic" }
       ]
@@ -109,12 +299,34 @@ export const cosmicCoffeeOntology: Ontology = {
       icon: "🏪",
       color: "#FFB900", // Microsoft Yellow/Gold
       properties: [
-        { name: "storeId", type: "string", isIdentifier: true, description: "Unique store identifier" },
-        { name: "name", type: "string", description: "Store name" },
+        { name: "storeId", type: "string", isIdentifier: true, isRequired: true, description: "Unique store identifier" },
+        { name: "name", type: "string", isRequired: true, description: "Store name" },
         { name: "city", type: "string", description: "City location" },
         { name: "state", type: "string", description: "State/Province" },
         { name: "openDate", type: "date", description: "Store opening date" },
-        { name: "capacity", type: "integer", description: "Seating capacity" }
+        {
+          name: "capacity",
+          type: "integer",
+          description: "Seating capacity",
+          constraints: [
+            { id: "cst-store-cap", name: "容纳人数区间", type: "range", severity: "warning", range: { min: 1, max: 500 }, message: "门店容纳人数通常在 1 至 500 人之间" }
+          ]
+        },
+        {
+          name: "totalRevenue",
+          type: "decimal",
+          isComputed: true,
+          unit: "USD",
+          description: "门店累计营收总额",
+          expression: {
+            type: "aggregation",
+            aggregation: {
+              function: "SUM",
+              traversal: { relationshipId: "order_processed_at_store", direction: "incoming" },
+              targetProperty: "total"
+            }
+          }
+        }
       ]
     },
     {
@@ -124,11 +336,19 @@ export const cosmicCoffeeOntology: Ontology = {
       icon: "🚚",
       color: "#D83B01", // Microsoft Orange
       properties: [
-        { name: "supplierId", type: "string", isIdentifier: true, description: "Unique supplier identifier" },
-        { name: "name", type: "string", description: "Supplier company name" },
+        { name: "supplierId", type: "string", isIdentifier: true, isRequired: true, description: "Unique supplier identifier" },
+        { name: "name", type: "string", isRequired: true, description: "Supplier company name" },
         { name: "country", type: "string", description: "Country of operation" },
         { name: "certification", type: "enum", values: ["Fair Trade", "Rainforest Alliance", "Organic", "Direct Trade", "None"], description: "Sustainability certification" },
-        { name: "rating", type: "decimal", description: "Quality rating (1-5)" }
+        {
+          name: "rating",
+          type: "decimal",
+          isRequired: true,
+          description: "Quality rating (1-5)",
+          constraints: [
+            { id: "cst-supp-rating", name: "评分区间有效性", type: "range", severity: "error", range: { min: 1.0, max: 5.0 }, message: "供应商评级分值范围必须在 1.0 至 5.0 之间" }
+          ]
+        }
       ]
     },
     {
@@ -138,7 +358,7 @@ export const cosmicCoffeeOntology: Ontology = {
       icon: "📦",
       color: "#00A9E0", // Light Blue
       properties: [
-        { name: "shipmentId", type: "string", isIdentifier: true, description: "Unique shipment identifier" },
+        { name: "shipmentId", type: "string", isIdentifier: true, isRequired: true, description: "Unique shipment identifier" },
         { name: "dispatchDate", type: "date", description: "Date shipped from supplier" },
         { name: "arrivalDate", type: "date", description: "Date arrived at store" },
         { name: "status", type: "enum", values: ["In Transit", "Delivered", "Delayed"], description: "Shipment status" },
@@ -153,7 +373,10 @@ export const cosmicCoffeeOntology: Ontology = {
       from: "customer",
       to: "order",
       cardinality: "one-to-many",
-      description: "A customer places one or more orders"
+      description: "A customer places one or more orders",
+      constraints: [
+        { id: "rel-cst-cust-order", name: "客户订单基数", type: "cardinality-exact", severity: "info", message: "每个客户可以有 0 到多笔历史订单", cardinalityRange: { min: 0 } }
+      ]
     },
     {
       id: "order_contains_product",
@@ -165,6 +388,9 @@ export const cosmicCoffeeOntology: Ontology = {
       attributes: [
         { name: "quantity", type: "integer" },
         { name: "customizations", type: "string" }
+      ],
+      constraints: [
+        { id: "rel-cst-order-prod", name: "订单商品不可为空", type: "required", severity: "error", message: "每笔订单必须至少包含 1 种商品", cardinalityRange: { min: 1 } }
       ]
     },
     {

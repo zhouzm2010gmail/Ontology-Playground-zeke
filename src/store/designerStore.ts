@@ -99,6 +99,63 @@ export function validateOntology(ontology: Ontology): ValidationError[] {
         } else if (!existing) {
           propNameTypeMap.set(p.name, { type: p.type, entityName: label });
         }
+
+        // 计算属性校验
+        if (p.isComputed && p.expression) {
+          if (p.expression.type === 'aggregation' && p.expression.aggregation) {
+            const { traversal, targetProperty, function: fn } = p.expression.aggregation;
+            if (traversal.relationshipId) {
+              const rel = ontology.relationships.find((r) => r.id === traversal.relationshipId);
+              if (!rel) {
+                errors.push({
+                  message: `计算属性 "${p.name}" 引用的关系不存在。`,
+                  entityId: e.id,
+                });
+              } else if (fn !== 'COUNT' && targetProperty) {
+                const targetEntId = traversal.direction === 'outgoing' ? rel.to : rel.from;
+                const targetEnt = ontology.entityTypes.find((ent) => ent.id === targetEntId);
+                if (targetEnt && !targetEnt.properties.some((tp) => tp.name === targetProperty)) {
+                  errors.push({
+                    message: `计算属性 "${p.name}" 引用的目标属性 "${targetProperty}" 在实体 "${targetEnt.name}" 中不存在。`,
+                    entityId: e.id,
+                  });
+                }
+              }
+            }
+          }
+        }
+
+        // 约束规则校验
+        if (p.constraints) {
+          for (const c of p.constraints) {
+            if (c.type === 'range' && c.range) {
+              if (c.range.min !== undefined && c.range.max !== undefined && c.range.min > c.range.max) {
+                errors.push({
+                  message: `属性 "${p.name}" 的范围约束最小值 (${c.range.min}) 不能大于最大值 (${c.range.max})。`,
+                  entityId: e.id,
+                });
+              }
+            }
+            if (c.type === 'length' && c.length) {
+              if (c.length.min !== undefined && c.length.max !== undefined && c.length.min > c.length.max) {
+                errors.push({
+                  message: `属性 "${p.name}" 的长度约束最小长度 (${c.length.min}) 不能大于最大长度 (${c.length.max})。`,
+                  entityId: e.id,
+                });
+              }
+            }
+            if (c.type === 'pattern' && c.pattern) {
+              try {
+                new RegExp(c.pattern);
+              } catch {
+                errors.push({
+                  message: `属性 "${p.name}" 的正则表达式 "${c.pattern}" 语法无效。`,
+                  entityId: e.id,
+                });
+              }
+            }
+          }
+        }
       }
     }
   }
@@ -126,6 +183,21 @@ export function validateOntology(ontology: Ontology): ValidationError[] {
         message: `"${label}" points to "${toLabel}" which doesn't exist. Pick a valid target entity.`,
         relationshipId: r.id,
       });
+    }
+
+    // 关系约束校验
+    if (r.constraints) {
+      for (const rc of r.constraints) {
+        if (rc.type === 'cardinality-exact' && rc.cardinalityRange) {
+          const { min, max } = rc.cardinalityRange;
+          if (min !== undefined && max !== undefined && min > max) {
+            errors.push({
+              message: `关系 "${label}" 的基数约束最小值 (${min}) 不能大于最大值 (${max})。`,
+              relationshipId: r.id,
+            });
+          }
+        }
+      }
     }
   }
 

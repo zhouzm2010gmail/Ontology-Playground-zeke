@@ -113,6 +113,18 @@ export function serializeToRDF(
       if (prop.isIdentifier) {
         rdf += '        <ont:isIdentifier rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isIdentifier>\n';
       }
+      if (prop.isComputed) {
+        rdf += '        <ont:isComputed rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isComputed>\n';
+      }
+      if (prop.expression) {
+        rdf += `        <ont:expressionJson>${escapeXml(JSON.stringify(prop.expression))}</ont:expressionJson>\n`;
+      }
+      if (prop.isRequired) {
+        rdf += '        <ont:isRequired rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</ont:isRequired>\n';
+      }
+      if (prop.constraints && prop.constraints.length > 0) {
+        rdf += `        <ont:constraintsJson>${escapeXml(JSON.stringify(prop.constraints))}</ont:constraintsJson>\n`;
+      }
       if (prop.unit) {
         rdf += `        <ont:unit>${escapeXml(prop.unit)}</ont:unit>\n`;
       }
@@ -144,6 +156,9 @@ export function serializeToRDF(
     rdf += `        <ont:cardinality>${escapeXml(rel.cardinality)}</ont:cardinality>\n`;
     rdf += `        <ont:fromEntityId>${escapeXml(rel.from)}</ont:fromEntityId>\n`;
     rdf += `        <ont:toEntityId>${escapeXml(rel.to)}</ont:toEntityId>\n`;
+    if (rel.constraints && rel.constraints.length > 0) {
+      rdf += `        <ont:constraintsJson>${escapeXml(JSON.stringify(rel.constraints))}</ont:constraintsJson>\n`;
+    }
     rdf += '    </owl:ObjectProperty>\n\n';
 
     // Relationship attributes as separate data properties

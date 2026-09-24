@@ -167,6 +167,10 @@ export function ImportExportModal({ onClose, onFabricPush }: ImportExportModalPr
         yaml += `${indent(4)}- name: "${prop.name}"\n`;
         yaml += `${indent(5)}type: "${prop.type}"\n`;
         if (prop.isIdentifier) yaml += `${indent(5)}isIdentifier: true\n`;
+        if (prop.isComputed) yaml += `${indent(5)}isComputed: true\n`;
+        if (prop.isRequired) yaml += `${indent(5)}isRequired: true\n`;
+        if (prop.expression) yaml += `${indent(5)}expression: ${JSON.stringify(prop.expression)}\n`;
+        if (prop.constraints) yaml += `${indent(5)}constraints: ${JSON.stringify(prop.constraints)}\n`;
       }
     }
 
@@ -177,6 +181,7 @@ export function ImportExportModal({ onClose, onFabricPush }: ImportExportModalPr
       yaml += `${indent(3)}from: "${rel.from}"\n`;
       yaml += `${indent(3)}to: "${rel.to}"\n`;
       yaml += `${indent(3)}cardinality: "${rel.cardinality}"\n`;
+      if (rel.constraints) yaml += `${indent(3)}constraints: ${JSON.stringify(rel.constraints)}\n`;
     }
 
     if (dataBindings.length > 0) {
@@ -213,10 +218,10 @@ export function ImportExportModal({ onClose, onFabricPush }: ImportExportModalPr
 
     // Properties detail table
     csv += '\n# PROPERTIES BY ENTITY\n';
-    csv += 'entity_id,property_name,property_type,is_identifier\n';
+    csv += 'entity_id,property_name,property_type,is_identifier,is_computed,is_required\n';
     for (const entity of currentOntology.entityTypes) {
       for (const prop of entity.properties) {
-        csv += `"${entity.id}","${prop.name}","${prop.type}","${prop.isIdentifier || false}"\n`;
+        csv += `"${entity.id}","${prop.name}","${prop.type}","${prop.isIdentifier || false}","${prop.isComputed || false}","${prop.isRequired || false}"\n`;
       }
     }
 

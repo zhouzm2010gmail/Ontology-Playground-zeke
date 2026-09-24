@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Key } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Key, Zap, Shield } from 'lucide-react';
 import { useDesignerStore, ENTITY_COLORS, ENTITY_ICONS, fabricIQNameError } from '../../store/designerStore';
 import type { Property } from '../../data/ontology';
+import { ComputedPropertyEditor } from './ComputedPropertyEditor';
+import { ConstraintEditor } from './ConstraintEditor';
 
 const PROPERTY_TYPES: Property['type'][] = [
   'string', 'integer', 'decimal', 'double', 'date', 'datetime', 'boolean', 'enum',
@@ -22,6 +24,8 @@ export function EntityForm() {
   } = useDesignerStore();
 
   const [expandedEntities, setExpandedEntities] = useState<Set<string>>(new Set());
+  const [expandedComputedProps, setExpandedComputedProps] = useState<Record<string, boolean>>({});
+  const [expandedConstraintProps, setExpandedConstraintProps] = useState<Record<string, boolean>>({});
   const cardRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // When an entity is selected externally (e.g. graph click), expand and scroll to it
@@ -185,8 +189,12 @@ export function EntityForm() {
                       const idTypeErr = prop.isIdentifier && prop.type !== 'string' && prop.type !== 'integer'
                         ? `Identifier must be string or integer (currently ${prop.type}).`
                         : null;
+                      const propKey = `${entity.id}-${idx}`;
+                      const isComputedOpen = prop.isComputed && (expandedComputedProps[propKey] ?? true);
+                      const isConstraintOpen = !!expandedConstraintProps[propKey];
+
                       return (
-                      <div key={idx}>
+                      <div key={idx} style={{ marginBottom: (isComputedOpen || isConstraintOpen) ? 8 : 2 }}>
                       <div className="designer-property-row">
                         <span
                           className="designer-grip"
@@ -226,13 +234,63 @@ export function EntityForm() {
                           ))}
                         </select>
                         <button
+                          type="button"
                           className={`designer-id-btn ${prop.isIdentifier ? 'active' : ''} ${idTypeErr ? 'warning' : ''}`}
                           onClick={() => updateProperty(entity.id, idx, { isIdentifier: !prop.isIdentifier })}
                           title={idTypeErr || (prop.isIdentifier ? 'Remove as identifier' : 'Mark as identifier')}
                         >
                           <Key size={12} />
                         </button>
+
+                        {/* 计算属性开关/展开按钮 */}
                         <button
+                          type="button"
+                          className={`designer-tool-btn ${prop.isComputed ? 'computed-active' : ''}`}
+                          onClick={() => {
+                            if (!prop.isComputed) {
+                              updateProperty(entity.id, idx, {
+                                isComputed: true,
+                                expression: prop.expression || {
+                                  type: 'aggregation',
+                                  aggregation: {
+                                    function: 'SUM',
+                                    traversal: { relationshipId: '', direction: 'outgoing' },
+                                  },
+                                },
+                              });
+                              setExpandedComputedProps((prev) => ({ ...prev, [propKey]: true }));
+                            } else {
+                              setExpandedComputedProps((prev) => ({ ...prev, [propKey]: !prev[propKey] }));
+                            }
+                          }}
+                          title={prop.isComputed ? '计算属性已开启 (点击折叠/展开)' : '设为计算属性'}
+                        >
+                          <Zap size={11} />
+                          <span>{prop.isComputed ? '⚡' : '算'}</span>
+                        </button>
+
+                        {/* 约束规则配置按钮 */}
+                        <button
+                          type="button"
+                          className={`designer-tool-btn ${
+                            (prop.constraints && prop.constraints.length > 0) || prop.isRequired
+                              ? 'constraint-active'
+                              : ''
+                          }`}
+                          onClick={() => {
+                            setExpandedConstraintProps((prev) => ({
+                              ...prev,
+                              [propKey]: !prev[propKey],
+                            }));
+                          }}
+                          title="数据契约与验证规则配置"
+                        >
+                          <Shield size={11} />
+                          <span>{prop.constraints?.length ? `🛡️${prop.constraints.length}` : '规'}</span>
+                        </button>
+
+                        <button
+                          type="button"
                           className="designer-delete-btn small"
                           onClick={() => removeProperty(entity.id, idx)}
                           title="Remove property"
@@ -240,8 +298,27 @@ export function EntityForm() {
                           <Trash2 size={12} />
                         </button>
                       </div>
+
                       {(propNameErr || idTypeErr) && (
                         <span className="designer-field-hint error">{propNameErr || idTypeErr}</span>
+                      )}
+
+                      {/* 计算属性编辑器展开 */}
+                      {isComputedOpen && (
+                        <ComputedPropertyEditor
+                          property={prop}
+                          entityId={entity.id}
+                          ontology={ontology}
+                          onChange={(expr) => updateProperty(entity.id, idx, { expression: expr })}
+                        />
+                      )}
+
+                      {/* 约束规则编辑器展开 */}
+                      {isConstraintOpen && (
+                        <ConstraintEditor
+                          property={prop}
+                          onChange={(updates) => updateProperty(entity.id, idx, updates)}
+                        />
                       )}
                       </div>
                       );
