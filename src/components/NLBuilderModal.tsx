@@ -63,6 +63,14 @@ export function NLBuilderModal({ onClose }: NLBuilderModalProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [voiceSupported, setVoiceSupported] = useState(false);
   const [voiceError, setVoiceError] = useState<string | null>(null);
+  const [speechLang, setSpeechLang] = useState<'zh-CN' | 'en-US'>(() => {
+    if (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('zh')) {
+      return 'zh-CN';
+    }
+    return 'en-US';
+  });
+  const speechLangRef = useRef(speechLang);
+  speechLangRef.current = speechLang;
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const shouldKeepListeningRef = useRef(false);
   
@@ -89,12 +97,19 @@ export function NLBuilderModal({ onClose }: NLBuilderModalProps) {
       const recognition = new SpeechRecognitionAPI();
       recognition.continuous = false; // Use non-continuous mode and restart manually
       recognition.interimResults = false; // Only get final results
-      recognition.lang = 'en-US';
+      recognition.lang = speechLangRef.current;
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         const transcript = event.results[0][0].transcript;
         if (transcript) {
-          setDescription(prev => prev + transcript + ' ');
+          setDescription((prev) => {
+            if (!prev) return transcript;
+            if (speechLangRef.current === 'zh-CN') {
+              const needsSpace = /[a-zA-Z0-9]$/.test(prev);
+              return prev + (needsSpace ? ' ' : '') + transcript;
+            }
+            return prev.endsWith(' ') ? prev + transcript + ' ' : prev + ' ' + transcript + ' ';
+          });
         }
       };
 
@@ -253,10 +268,10 @@ export function NLBuilderModal({ onClose }: NLBuilderModalProps) {
   };
 
   const examplePrompts = [
+    "咖啡连锁店，包含顾客、订单和咖啡商品。顾客的totalSpend通过订单金额汇总计算得到，总消费大于1000为金卡会员，且订单金额不能为负数。",
+    "我运营一家综合医院，有医生、患者和就诊记录，患者可以向医生预约挂号，每次就诊包含处方药品与费用。",
     "A coffee shop with customers, orders, and products. Customer totalSpend is the sum of order amounts, tier is derived from totalSpend, and order amount cannot be negative.",
-    "I run a hospital with doctors, patients, and departments. Patients visit doctors for appointments.",
     "An e-commerce platform with products, customers, orders, and reviews. Customers can return items.",
-    "A university with students, professors, courses, and departments. Students enroll in courses.",
   ];
 
   return (
@@ -300,21 +315,40 @@ export function NLBuilderModal({ onClose }: NLBuilderModalProps) {
                     rows={5}
                   />
                   {voiceSupported && (
-                    <button
-                      className={`voice-btn ${isRecording ? 'recording' : ''}`}
-                      onClick={toggleRecording}
-                      title={isRecording ? 'Stop recording' : 'Start voice input'}
-                      type="button"
-                    >
-                      {isRecording ? <MicOff size={20} /> : <Mic size={20} />}
-                    </button>
+                    <div className="voice-controls">
+                      <button
+                        type="button"
+                        className="voice-lang-btn"
+                        onClick={() => {
+                          if (isRecording) stopRecording();
+                          setSpeechLang(speechLang === 'zh-CN' ? 'en-US' : 'zh-CN');
+                        }}
+                        title={
+                          speechLang === 'zh-CN'
+                            ? '当前语音识别语言：中文普通话（点击切换为 English）'
+                            : 'Current Language: English (Click to switch to 中文)'
+                        }
+                      >
+                        {speechLang === 'zh-CN' ? '🇨🇳 中文' : '🇺🇸 EN'}
+                      </button>
+                      <button
+                        className={`voice-btn ${isRecording ? 'recording' : ''}`}
+                        onClick={toggleRecording}
+                        title={isRecording ? '停止录音 / Stop recording' : '开始语音输入 / Start voice input'}
+                        type="button"
+                      >
+                        {isRecording ? <MicOff size={18} /> : <Mic size={18} />}
+                      </button>
+                    </div>
                   )}
                 </div>
                 
                 {isRecording && (
                   <div className="recording-indicator">
                     <span className="recording-dot" />
-                    Listening... Speak your ontology description
+                    {speechLang === 'zh-CN'
+                      ? '正在聆听中... 请描述您的业务场景（如：包含哪些实体、关系、计算与规则）'
+                      : 'Listening... Speak your ontology description'}
                   </div>
                 )}
                 
