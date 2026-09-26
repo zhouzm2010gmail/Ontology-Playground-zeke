@@ -1,14 +1,6 @@
-import { AzureFunction, Context, HttpRequest } from "@azure/functions";
+import type { ComputedExpression, PropertyConstraint, RelationshipConstraint } from '../data/ontology';
 
-interface OpenAIResponse {
-  choices?: Array<{
-    message?: {
-      content?: string;
-    };
-  }>;
-}
-
-const SYSTEM_PROMPT = `You are an expert ontology extraction system. Given a business scenario description, extract entities, relationships, properties, computed properties, and validation rules/constraints to create a complete production-grade ontology.
+export const SYSTEM_PROMPT = `You are an expert ontology extraction system. Given a business scenario description, extract entities, relationships, properties, computed properties, and validation rules/constraints to create a complete production-grade ontology.
 
 Output ONLY valid JSON matching this exact schema:
 {
@@ -90,7 +82,49 @@ Rules:
 9. DATA CONTRACTS & VALIDATION RULES: If the description mentions data constraints, requirements, or boundaries (e.g. required fields, non-negative amounts, email format regex, valid ranges), set isRequired: true and/or populate constraints with human-readable descriptions.
 10. Output ONLY the JSON, no explanations`;
 
-function cleanJsonContent(content: string): string {
+export interface ExtractorConfig {
+  apiKey: string;
+  baseURL?: string;
+  model?: string;
+  isAzure?: boolean;
+  azureDeployment?: string;
+}
+
+export interface ExtractedOntologyResult {
+  name: string;
+  entityTypes: Array<{
+    id: string;
+    name: string;
+    description: string;
+    properties: Array<{
+      name: string;
+      type: string;
+      isIdentifier: boolean;
+      values?: string[];
+      unit?: string;
+      isComputed?: boolean;
+      expression?: ComputedExpression;
+      isRequired?: boolean;
+      constraints?: PropertyConstraint[];
+    }>;
+    icon: string;
+    color: string;
+  }>;
+  relationships: Array<{
+    id: string;
+    name: string;
+    from: string;
+    to: string;
+    cardinality: string;
+    description?: string;
+    constraints?: RelationshipConstraint[];
+  }>;
+}
+
+/**
+ * Clean markdown code fences from LLM responses if present
+ */
+export function cleanJsonContent(content: string): string {
   let cleaned = content.trim();
   const match = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
   if (match) {
@@ -99,7 +133,10 @@ function cleanJsonContent(content: string): string {
   return cleaned;
 }
 
-function resolveChatCompletionsUrl(baseURL: string): string {
+/**
+ * Resolve standard OpenAI endpoint for chat completions
+ */
+export function resolveChatCompletionsUrl(baseURL: string): string {
   const trimmed = baseURL.trim().replace(/\/+$/, '');
   if (trimmed.endsWith('/chat/completions')) {
     return trimmed;
@@ -107,119 +144,80 @@ function resolveChatCompletionsUrl(baseURL: string): string {
   return `${trimmed}/chat/completions`;
 }
 
-const generateOntology: AzureFunction = async function (
-  context: Context,
-  req: HttpRequest
-): Promise<void> {
-  const { description } = req.body || {};
-
-  if (!description || typeof description !== "string" || !description.trim()) {
-    context.res = {
-      status: 400,
-      body: { error: "Missing or invalid 'description' in request body" },
-    };
-    return;
+/**
+ * Request ontology extraction from OpenAI-compatible or Azure OpenAI provider
+ */
+export async function extractOntologyFromText(
+  description: string,
+  config: ExtractorConfig
+): Promise<ExtractedOntologyResult> {
+  if (!description || typeof description !== 'string' || !description.trim()) {
+    throw new Error("Missing or empty 'description'");
   }
 
-  // 1. Detect standard OpenAI / compatible provider or fallback to Azure OpenAI
-  const openaiKey = process.env.OPENAI_API_KEY;
-  const azureKey = process.env.AZURE_OPENAI_API_KEY;
-  const isAzure = !openaiKey && Boolean(azureKey && process.env.AZURE_OPENAI_ENDPOINT);
+  if (!config.apiKey) {
+    throw new Error('API Key is required for ontology extraction');
+  }
 
-  let targetUrl: string;
+  let requestUrl: string;
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
   };
+
   const bodyPayload: Record<string, unknown> = {
     messages: [
-      { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: description.trim() },
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: description.trim() },
     ],
     temperature: 0.3,
     max_tokens: 4000,
-    response_format: { type: "json_object" },
+    response_format: { type: 'json_object' },
   };
 
-  if (isAzure) {
-    const endpoint = (process.env.AZURE_OPENAI_ENDPOINT || "").replace(/\/+$/, "");
-    const deployment = process.env.AZURE_OPENAI_DEPLOYMENT || "gpt-4o-mini";
-    targetUrl = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-02-15-preview`;
-    headers["api-key"] = azureKey!;
+  if (config.isAzure) {
+    const endpoint = (config.baseURL || '').replace(/\/+$/, '');
+    const deployment = config.azureDeployment || 'gpt-4o-mini';
+    requestUrl = `${endpoint}/openai/deployments/${deployment}/chat/completions?api-version=2024-02-15-preview`;
+    headers['api-key'] = config.apiKey;
   } else {
-    const apiKey = openaiKey || azureKey;
-    if (!apiKey) {
-      context.res = {
-        status: 500,
-        body: {
-          error: "LLM API Key not configured. Please set OPENAI_API_KEY (or AZURE_OPENAI_API_KEY).",
-        },
-      };
-      return;
-    }
-
-    const baseURL = process.env.OPENAI_BASE_URL || "https://api.openai.com/v1";
-    targetUrl = resolveChatCompletionsUrl(baseURL);
-    headers["Authorization"] = `Bearer ${apiKey}`;
-    bodyPayload.model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+    const rawBaseURL = config.baseURL || 'https://api.openai.com/v1';
+    requestUrl = resolveChatCompletionsUrl(rawBaseURL);
+    headers['Authorization'] = `Bearer ${config.apiKey}`;
+    bodyPayload.model = config.model || 'gpt-4o-mini';
   }
 
+  const response = await fetch(requestUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(bodyPayload),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`LLM API returned status ${response.status}: ${errorText}`);
+  }
+
+  const data = await response.json() as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+
+  const rawContent = data.choices?.[0]?.message?.content;
+  if (!rawContent) {
+    throw new Error('No content returned from LLM provider');
+  }
+
+  const cleaned = cleanJsonContent(rawContent);
+  let parsed: unknown;
   try {
-    const response = await fetch(targetUrl, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(bodyPayload),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      context.log.error("LLM Provider error:", errorText);
-      context.res = {
-        status: 502,
-        body: { error: `Failed to generate ontology from LLM: ${errorText}` },
-      };
-      return;
-    }
-
-    const data = (await response.json()) as OpenAIResponse;
-    const rawContent = data.choices?.[0]?.message?.content;
-
-    if (!rawContent) {
-      context.res = {
-        status: 500,
-        body: { error: "No content returned from LLM provider" },
-      };
-      return;
-    }
-
-    // Clean any markdown fences and parse
-    const cleanedJson = cleanJsonContent(rawContent);
-    const ontology = JSON.parse(cleanedJson);
-
-    // Basic structure validation
-    if (
-      !ontology.name ||
-      !Array.isArray(ontology.entityTypes) ||
-      !Array.isArray(ontology.relationships)
-    ) {
-      context.res = {
-        status: 500,
-        body: { error: "Invalid ontology structure returned from LLM" },
-      };
-      return;
-    }
-
-    context.res = {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-      body: { ontology },
-    };
-  } catch (error) {
-    context.log.error("Error generating ontology:", error);
-    context.res = {
-      status: 500,
-      body: { error: error instanceof Error ? error.message : "Internal error generating ontology" },
-    };
+    parsed = JSON.parse(cleaned);
+  } catch (err) {
+    throw new Error(`Failed to parse extracted JSON from LLM: ${err instanceof Error ? err.message : String(err)}`);
   }
-};
 
-export default generateOntology;
+  const ontology = parsed as ExtractedOntologyResult;
+  if (!ontology.name || !Array.isArray(ontology.entityTypes) || !Array.isArray(ontology.relationships)) {
+    throw new Error('Invalid ontology structure returned from LLM');
+  }
+
+  return ontology;
+}

@@ -207,7 +207,10 @@ GitHub Pages build so asset paths resolve correctly.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `VITE_ENABLE_AI_BUILDER` | `false` | Enable the Azure OpenAI ontology builder |
+| `VITE_ENABLE_AI_BUILDER` | `false` | Enable the AI ontology builder (OpenAI / Azure / third-party compatible) |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Base URL for OpenAI-compatible API (e.g., DeepSeek, OneAPI, OpenAI) |
+| `OPENAI_API_KEY` | *(empty)* | API Key for OpenAI or compatible provider |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Model name for extraction (e.g., `gpt-4o-mini`, `deepseek-chat`, `qwen-plus`) |
 | `VITE_ENABLE_LEGACY_FORMATS` | `false` | Enable JSON/YAML/CSV import/export formats |
 | `VITE_BASE_PATH` | `/` | Base path for the app (set automatically for GitHub Pages) |
 | `VITE_GITHUB_CLIENT_ID` | *(empty)* | GitHub OAuth App client ID for one-click catalogue PRs ([setup guide](docs/github-oauth-setup.md)) |

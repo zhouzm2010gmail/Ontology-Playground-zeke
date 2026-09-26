@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Sparkles, Send, Loader2, Check, AlertCircle, Edit3, Mic, MicOff } from 'lucide-react';
+import { X, Sparkles, Send, Loader2, Check, AlertCircle, Edit3, Mic, MicOff, Zap, Shield } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import type { Ontology } from '../data/ontology';
 
@@ -200,8 +200,15 @@ export function NLBuilderModal({ onClose }: NLBuilderModalProps) {
       });
       
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Failed to generate ontology');
+        let errorMsg = `Server returned status ${response.status}`;
+        try {
+          const data = await response.json();
+          errorMsg = data.error || errorMsg;
+        } catch {
+          const text = await response.text().catch(() => '');
+          if (text) errorMsg = text.slice(0, 200);
+        }
+        throw new Error(errorMsg);
       }
       
       const { ontology } = await response.json();
@@ -246,10 +253,10 @@ export function NLBuilderModal({ onClose }: NLBuilderModalProps) {
   };
 
   const examplePrompts = [
+    "A coffee shop with customers, orders, and products. Customer totalSpend is the sum of order amounts, tier is derived from totalSpend, and order amount cannot be negative.",
     "I run a hospital with doctors, patients, and departments. Patients visit doctors for appointments.",
     "An e-commerce platform with products, customers, orders, and reviews. Customers can return items.",
     "A university with students, professors, courses, and departments. Students enroll in courses.",
-    "A restaurant chain with locations, employees, menu items, and customer orders with reservations.",
   ];
 
   return (
@@ -376,16 +383,56 @@ export function NLBuilderModal({ onClose }: NLBuilderModalProps) {
                   />
                 ) : (
                   <div className="preview-summary">
+                    {(() => {
+                      const totalComputed = generatedOntology.entityTypes.reduce(
+                        (sum, e) => sum + e.properties.filter(p => p.isComputed).length,
+                        0
+                      );
+                      const totalConstraints = generatedOntology.entityTypes.reduce(
+                        (sum, e) => sum + e.properties.reduce((pSum, p) => pSum + (p.constraints?.length || 0) + (p.isRequired ? 1 : 0), 0),
+                        0
+                      ) + generatedOntology.relationships.reduce((rSum, r) => rSum + (r.constraints?.length || 0), 0);
+
+                      return (
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                          <span className="summary-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '16px', background: 'var(--bg-secondary)', fontSize: '12px' }}>
+                            {generatedOntology.entityTypes.length} Entities
+                          </span>
+                          <span className="summary-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '16px', background: 'var(--bg-secondary)', fontSize: '12px' }}>
+                            {generatedOntology.relationships.length} Relationships
+                          </span>
+                          {totalComputed > 0 && (
+                            <span className="summary-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '16px', background: 'rgba(0, 120, 212, 0.1)', color: 'var(--accent)', fontSize: '12px', fontWeight: 600 }}>
+                              <Zap size={13} /> {totalComputed} Computed
+                            </span>
+                          )}
+                          {totalConstraints > 0 && (
+                            <span className="summary-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '4px 10px', borderRadius: '16px', background: 'rgba(16, 124, 16, 0.1)', color: '#107C10', fontSize: '12px', fontWeight: 600 }}>
+                              <Shield size={13} /> {totalConstraints} Rules
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+
                     <div className="preview-section">
                       <h4>Entities ({generatedOntology.entityTypes.length})</h4>
                       <div className="preview-items">
-                        {generatedOntology.entityTypes.map((entity) => (
-                          <div key={entity.id} className="preview-item entity">
-                            <span className="entity-icon">{entity.icon}</span>
-                            <span className="entity-name">{entity.name}</span>
-                            <span className="entity-props">{entity.properties.length} props</span>
-                          </div>
-                        ))}
+                        {generatedOntology.entityTypes.map((entity) => {
+                          const compCount = entity.properties.filter(p => p.isComputed).length;
+                          const ruleCount = entity.properties.reduce((acc, p) => acc + (p.constraints?.length || 0) + (p.isRequired ? 1 : 0), 0);
+                          return (
+                            <div key={entity.id} className="preview-item entity">
+                              <span className="entity-icon">{entity.icon}</span>
+                              <span className="entity-name">{entity.name}</span>
+                              <span className="entity-props">
+                                {entity.properties.length} props
+                                {compCount > 0 && <span style={{ marginLeft: 6, color: 'var(--accent)', fontWeight: 600 }}>⚡{compCount}</span>}
+                                {ruleCount > 0 && <span style={{ marginLeft: 6, color: '#107C10', fontWeight: 600 }}>🛡️{ruleCount}</span>}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -397,6 +444,9 @@ export function NLBuilderModal({ onClose }: NLBuilderModalProps) {
                             <span className="rel-from">{rel.from}</span>
                             <span className="rel-name">→ {rel.name} →</span>
                             <span className="rel-to">{rel.to}</span>
+                            {rel.constraints && rel.constraints.length > 0 && (
+                              <span style={{ marginLeft: 6, color: '#107C10', fontSize: '12px' }}>🛡️</span>
+                            )}
                           </div>
                         ))}
                       </div>
